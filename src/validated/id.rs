@@ -1,13 +1,14 @@
 //! A validated source identifier, shared by metrics ids and feature flag
 //! keys.
 
+use crate::error::{Error, Result};
+use regex::Regex;
 use std::fmt;
 use std::sync::LazyLock;
-use regex::Regex;
-use crate::error::{Error, Result};
 
 pub const PATTERN_STR: &str = "^[a-z0-9_]+$";
-pub static PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(PATTERN_STR).expect("valid regex"));
+pub static PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(PATTERN_STR).expect("valid regex"));
 
 /// Returns whether `value` matches the pattern.
 fn matches_pattern(value: &str) -> bool {

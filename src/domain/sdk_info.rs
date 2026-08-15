@@ -31,7 +31,10 @@ impl SdkInfo {
             return Err(Error::validation("sdk_info.version", "must not be blank"));
         }
         if user_agent.trim().is_empty() {
-            return Err(Error::validation("sdk_info.user_agent", "must not be blank"));
+            return Err(Error::validation(
+                "sdk_info.user_agent",
+                "must not be blank",
+            ));
         }
         Ok(SdkInfo {
             name,
@@ -62,9 +65,16 @@ mod tests {
 
     #[test]
     fn stores_the_supplied_user_agent_verbatim() {
-        let info = SdkInfo::new("faststats-rs", "0.1.0", "FastStats Rust SDK v0.1.0 (my-app:1.4.2)")
-            .expect("valid sdk info");
-        assert_eq!(info.user_agent(), "FastStats Rust SDK v0.1.0 (my-app:1.4.2)");
+        let info = SdkInfo::new(
+            "faststats-rs",
+            "0.1.0",
+            "FastStats Rust SDK v0.1.0 (my-app:1.4.2)",
+        )
+        .expect("valid sdk info");
+        assert_eq!(
+            info.user_agent(),
+            "FastStats Rust SDK v0.1.0 (my-app:1.4.2)"
+        );
     }
 
     #[test]

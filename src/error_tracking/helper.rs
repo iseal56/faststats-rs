@@ -113,7 +113,10 @@ pub fn anonymize(text: &str, extra_patterns: &[(Regex, &str)]) -> String {
     let mut result = redact_ipv6(text);
 
     for pattern in default_patterns() {
-        result = pattern.regex.replace_all(&result, pattern.replacement).into_owned();
+        result = pattern
+            .regex
+            .replace_all(&result, pattern.replacement)
+            .into_owned();
     }
     result = redact_password_attribute(&result);
 
@@ -333,7 +336,10 @@ mod tests {
 
     #[test]
     fn default_patterns_apply_before_custom_ones() {
-        let custom = vec![(Regex::new(r"192\.168\.1\.10").unwrap(), "[should-not-match]")];
+        let custom = vec![(
+            Regex::new(r"192\.168\.1\.10").unwrap(),
+            "[should-not-match]",
+        )];
         let result = anonymize("ip 192.168.1.10 seen", &custom);
         assert_eq!(result, "ip [ipv4] seen");
     }
@@ -353,7 +359,12 @@ mod tests {
 
     #[test]
     fn collapse_stack_deduplicates_consecutive_frames() {
-        let frames = vec!["a".to_string(), "a".to_string(), "a".to_string(), "b".to_string()];
+        let frames = vec![
+            "a".to_string(),
+            "a".to_string(),
+            "a".to_string(),
+            "b".to_string(),
+        ];
         let collapsed = collapse_stack(&frames);
         assert_eq!(collapsed, vec!["a (x3)".to_string(), "b".to_string()]);
     }
@@ -392,7 +403,9 @@ mod tests {
 
     #[test]
     fn collapse_stack_caps_total_frame_count() {
-        let frames: Vec<String> = (0..(MAX_STACK_SIZE + 10)).map(|i| format!("frame_{i}")).collect();
+        let frames: Vec<String> = (0..(MAX_STACK_SIZE + 10))
+            .map(|i| format!("frame_{i}"))
+            .collect();
         let collapsed = collapse_stack(&frames);
         assert_eq!(collapsed.len(), MAX_STACK_SIZE + 1);
         assert!(collapsed.last().unwrap().contains("more"));

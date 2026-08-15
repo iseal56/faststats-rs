@@ -87,20 +87,34 @@ pub struct ClientBuilder {
 
 impl ClientBuilder {
     /// Starts building a client.
-    pub fn new(project_name: impl Into<String>, project_version: impl Into<String>, token: Token) -> Result<Self> {
+    pub fn new(
+        project_name: impl Into<String>,
+        project_version: impl Into<String>,
+        token: Token,
+    ) -> Result<Self> {
         let name = project_name.into();
         let version = project_version.into();
         let user_agent = format!(
             "FastStats Rust SDK v{} ({name}:{version})",
             env!("CARGO_PKG_VERSION"),
         );
-        let Ok(sdk) = SdkInfo::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"), user_agent) else {
-            return Err(crate::error::Error::Initialization("sdk info failure".to_string()));
+        let Ok(sdk) = SdkInfo::new(
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            user_agent,
+        ) else {
+            return Err(crate::error::Error::Initialization(
+                "sdk info failure".to_string(),
+            ));
         };
         Ok(Self::new_with_sdk_info(name, token, sdk))
     }
-    
-    pub fn new_with_sdk_info(project_name: impl Into<String>, token: Token, sdk_info: SdkInfo) -> Self {
+
+    pub fn new_with_sdk_info(
+        project_name: impl Into<String>,
+        token: Token,
+        sdk_info: SdkInfo,
+    ) -> Self {
         let project_name = project_name.into();
         let config = Config::from_env(Uuid::nil());
         ClientBuilder {
@@ -159,7 +173,10 @@ impl ClientBuilder {
 
     /// Mutably exposes the metrics factory for registration calls, e.g.
     /// `builder.metrics_factory(|f| f.add_metric(...))`.
-    pub fn metrics_factory(mut self, configure: impl FnOnce(MetricsFactory) -> Result<MetricsFactory>) -> Result<Self> {
+    pub fn metrics_factory(
+        mut self,
+        configure: impl FnOnce(MetricsFactory) -> Result<MetricsFactory>,
+    ) -> Result<Self> {
         self.metrics = configure(self.metrics)?;
         Ok(self)
     }
@@ -191,7 +208,10 @@ impl ClientBuilder {
     /// developer-enabled service.
     pub fn build(self) -> Result<Client> {
         let state = state::load_or_init(&self.config)?;
-        let config = self.config.clone_with_server_id(state.config.server_id()).and(&state.config);
+        let config = self
+            .config
+            .clone_with_server_id(state.config.server_id())
+            .and(&state.config);
 
         let token = self.token.clone();
         let sdk_info = self.sdk_info.clone();
@@ -209,7 +229,8 @@ impl ClientBuilder {
 
         let error_tracking = if self.error_tracking_enabled {
             Some(Arc::new(
-                self.error_tracking.build(Arc::clone(&transport), config.server_id())?,
+                self.error_tracking
+                    .build(Arc::clone(&transport), config.server_id())?,
             ))
         } else {
             None
@@ -224,7 +245,8 @@ impl ClientBuilder {
 
         let feature_flags = if self.feature_flags_enabled {
             Some(Arc::new(
-                self.feature_flags.build(Arc::clone(&transport), config.server_id())?,
+                self.feature_flags
+                    .build(Arc::clone(&transport), config.server_id())?,
             ))
         } else {
             None
@@ -335,41 +357,44 @@ impl Client {
         let error_tracking_ref = &self.error_tracking;
         let config_ref = &self.config;
         let mut runtime_context = self.runtime_context.take();
-        let (metrics_task, error_tracking_task) = RuntimeContext::ensure_and_run(&mut runtime_context, || {
-            let metrics_task = if let Some(metrics) = metrics_ref {
-                if config_ref.submit_metrics() {
-                    Some(Arc::clone(metrics).start_submitting())
-                } else {
-                    log::info!(
-                        "Metrics service enabled by developer but disabled via Config::submit_metrics; not starting"
-                    );
-                    None
-                }
-            } else {
-                None
-            };
-
-            let error_tracking_task = if let Some(error_tracking) = error_tracking_ref {
-                if config_ref.error_tracking() {
-                    error_tracking.install_panic_hook();
-                    let handle = Arc::clone(error_tracking).start_submitting();
-                    // async half of the cross-wiring from ClientBuilder::build
-                    if let Some(metrics) = metrics_ref {
-                        error_tracking.spawn_metrics_event_listener(metrics.subscribe());
+        let (metrics_task, error_tracking_task) = RuntimeContext::ensure_and_run(
+            &mut runtime_context,
+            || {
+                let metrics_task = if let Some(metrics) = metrics_ref {
+                    if config_ref.submit_metrics() {
+                        Some(Arc::clone(metrics).start_submitting())
+                    } else {
+                        log::info!(
+                            "Metrics service enabled by developer but disabled via Config::submit_metrics; not starting"
+                        );
+                        None
                     }
-                    Some(handle)
                 } else {
-                    log::info!(
-                        "Error tracking service enabled by developer but disabled via Config::error_tracking; not starting"
-                    );
                     None
-                }
-            } else {
-                None
-            };
+                };
 
-            (metrics_task, error_tracking_task)
-        });
+                let error_tracking_task = if let Some(error_tracking) = error_tracking_ref {
+                    if config_ref.error_tracking() {
+                        error_tracking.install_panic_hook();
+                        let handle = Arc::clone(error_tracking).start_submitting();
+                        // async half of the cross-wiring from ClientBuilder::build
+                        if let Some(metrics) = metrics_ref {
+                            error_tracking.spawn_metrics_event_listener(metrics.subscribe());
+                        }
+                        Some(handle)
+                    } else {
+                        log::info!(
+                            "Error tracking service enabled by developer but disabled via Config::error_tracking; not starting"
+                        );
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                (metrics_task, error_tracking_task)
+            },
+        );
         self.metrics_task = metrics_task;
         self.error_tracking_task = error_tracking_task;
         self.runtime_context = runtime_context;
@@ -468,9 +493,9 @@ mod state {
     use std::env;
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicBool, Ordering};
     #[cfg(test)]
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use uuid::Uuid;
 
     use crate::domain::Config;
@@ -516,10 +541,7 @@ mod state {
         let path = state_file_path();
 
         let (config, file_existed) = match fs::read_to_string(&path) {
-            Ok(contents) => (
-                Config::from_persisted_str(&contents, Uuid::new_v4()),
-                true,
-            ),
+            Ok(contents) => (Config::from_persisted_str(&contents, Uuid::new_v4()), true),
             Err(_) => (default_config.clone_with_server_id(Uuid::new_v4()), false),
         };
 
@@ -537,7 +559,10 @@ mod state {
             false
         };
 
-        Ok(State { config, is_first_boot })
+        Ok(State {
+            config,
+            is_first_boot,
+        })
     }
 
     /// Applies the process-global first-run gate: if some earlier
@@ -610,11 +635,16 @@ mod state {
             unsafe { env::remove_var(FORCE_ENABLED_ENV) };
             let dir = env::temp_dir().join(format!("faststats-tests-{}", Uuid::new_v4()));
             fs::create_dir_all(&dir).expect("create tests dir");
-            fs::write(dir.join(STATE_FILE_NAME), "not a config file at all, no lines parse").expect("write corrupt file");
+            fs::write(
+                dir.join(STATE_FILE_NAME),
+                "not a config file at all, no lines parse",
+            )
+            .expect("write corrupt file");
             unsafe { env::set_var(STATE_DIR_ENV, &dir) };
 
             // a file that exists but fails to parse still counts as "existed"
-            let result = load_or_init(&Config::new(Uuid::nil())).expect("loads despite corrupt file");
+            let result =
+                load_or_init(&Config::new(Uuid::nil())).expect("loads despite corrupt file");
             assert!(!result.is_first_boot);
 
             unsafe { env::remove_var(STATE_DIR_ENV) };
@@ -709,24 +739,33 @@ mod tests {
 
     #[test]
     fn fresh_state_dir_produces_first_boot_client() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         assert!(client.is_first_boot());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn force_enabled_env_makes_first_client_not_first_boot() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -734,7 +773,8 @@ mod tests {
             env::set_var("FASTSTATS_ENABLED", "true");
         }
 
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         assert!(!client.is_first_boot());
@@ -749,73 +789,98 @@ mod tests {
 
     #[test]
     fn developer_config_and_persisted_file_config_are_anded_together() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
         // first run: developer config disables submit_metrics and persists it
         let disabling_config = Config::new(Uuid::nil()).set_submit_metrics(false);
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .config(disabling_config)
             .build()
             .expect("builds");
 
         // second run: persisted file still has it disabled, and wins via AND
         let enabling_config = Config::new(Uuid::nil()).set_submit_metrics(true);
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .config(enabling_config)
             .build()
             .expect("builds");
         assert!(!client.config().submit_metrics());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn state_file_is_written_under_the_configured_directory() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         assert!(dir.join("config.properties").exists());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn pre_existing_state_dir_produces_non_first_boot_client() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
         // first client creates the state file
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         // second client (same state dir) sees it as pre-existing
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         assert!(!client.is_first_boot());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn first_boot_start_does_not_spawn_submission_tasks() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -824,7 +889,8 @@ mod tests {
             env::set_var("FASTSTATS_ERROR_TRACKER_SERVER", "http://127.0.0.1:1");
         }
 
-        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         client.start();
@@ -843,7 +909,9 @@ mod tests {
 
     #[tokio::test]
     async fn start_called_twice_is_idempotent() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -853,11 +921,13 @@ mod tests {
         }
 
         // pre-create the state file so this run isn't first-boot
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
-        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         assert!(!client.is_ready());
@@ -880,12 +950,17 @@ mod tests {
 
     #[tokio::test]
     async fn shutdown_before_start_is_a_no_op() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
-        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         assert!(!client.is_ready());
@@ -893,25 +968,33 @@ mod tests {
         client.shutdown().await;
         assert!(!client.is_ready());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn developer_enabled_but_config_disabled_service_stays_off() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
         // pre-create the state file so this run isn't first-boot
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
         let config = Config::new(Uuid::nil()).set_submit_metrics(false);
-        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .config(config)
             .metrics(true)
             // error tracking isn't under tests here and needs a runtime this tests doesn't have
@@ -924,24 +1007,32 @@ mod tests {
         assert!(client.metrics_task.is_none());
         assert!(client.metrics().is_some());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn developer_disabled_service_is_never_constructed_even_if_config_enables_it() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
         let config = Config::new(Uuid::nil()).set_submit_metrics(true);
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .config(config)
             .metrics(false)
             .build()
@@ -950,24 +1041,32 @@ mod tests {
         // nothing to enable: the service was never constructed
         assert!(client.metrics().is_none());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn feature_flags_active_requires_both_developer_and_config_enable() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
         let config = Config::new(Uuid::nil()).set_enabled(false);
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .config(config)
             .feature_flags(true)
             .build()
@@ -976,14 +1075,18 @@ mod tests {
         assert!(client.feature_flags().is_some());
         assert!(!client.feature_flags_active());
 
-        unsafe { env::remove_var("FASTSTATS_STATE_DIR"); }
+        unsafe {
+            env::remove_var("FASTSTATS_STATE_DIR");
+        }
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]
     async fn shutdown_on_a_never_started_client_does_not_panic() {
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -992,7 +1095,8 @@ mod tests {
             env::set_var("FASTSTATS_ERROR_TRACKER_SERVER", "http://127.0.0.1:1");
         }
 
-        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
         client.shutdown().await;
@@ -1009,23 +1113,33 @@ mod tests {
     #[tokio::test]
     async fn error_tracking_context_includes_metrics_snapshot_once_wired() {
         // build() wires the metrics-snapshot half synchronously, before start()
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
-        unsafe { env::set_var("FASTSTATS_STATE_DIR", &dir); }
+        unsafe {
+            env::set_var("FASTSTATS_STATE_DIR", &dir);
+        }
 
-        unsafe { env::set_var("FASTSTATS_ENABLED", "true"); } // skip first-boot for this run
+        unsafe {
+            env::set_var("FASTSTATS_ENABLED", "true");
+        } // skip first-boot for this run
 
         // pre-create the state file so this run isn't first-boot.
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
-        let client = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let client = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
-        let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+        let error_tracking = client
+            .error_tracking()
+            .expect("error tracking enabled by default");
         error_tracking.track_error("E", Some("boom"), &[], None);
 
         let data = error_tracking.create_data().expect("payload present");
@@ -1045,7 +1159,9 @@ mod tests {
         // regression tests for audit items 7/8: a custom metric that
         // fails to compute should show up in error tracking once
         // Client::start has spawned the MetricsEvent listener task
-        let _guard = state::STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -1057,16 +1173,22 @@ mod tests {
 
         // long enough that the scheduled submission loop itself won't
         // fire during this tests.
-        unsafe { env::set_var("FASTSTATS_INITIAL_DELAY", "3600"); }
+        unsafe {
+            env::set_var("FASTSTATS_INITIAL_DELAY", "3600");
+        }
 
-        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid builder")
+        let _ = ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid builder")
             .build()
             .expect("builds");
 
         let failing_metric = crate::metrics::Metric::try_new("always_fails", || {
-            Err::<Option<i32>, _>(crate::error::Error::validation("t", "computed metrics boom"))
+            Err::<Option<i32>, _>(crate::error::Error::validation(
+                "t",
+                "computed metrics boom",
+            ))
         })
-            .expect("valid metric definition");
+        .expect("valid metric definition");
 
         let mut client = ClientBuilder::new(test_project_name(), test_version(), test_token())
             .expect("valid builder")

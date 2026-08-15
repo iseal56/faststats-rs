@@ -5,13 +5,13 @@ use std::env;
 use std::io::Write;
 use std::time::Duration;
 
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 use reqwest::{Client, StatusCode, Url};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
 use crate::domain::sdk_info::SdkInfo;
+use crate::error::{Error, Result};
 use crate::validated::token::Token;
 
 /// The fixed request timeout used for every FastStats HTTP request.
@@ -167,9 +167,7 @@ fn log_outcome(outcome: &SubmissionOutcome, submission_name: &str) {
             "Received server error response from {submission_name} server: {status} ({body})"
         );
     } else {
-        log::warn!(
-            "Received unexpected response from {submission_name} server: {status} ({body})"
-        );
+        log::warn!("Received unexpected response from {submission_name} server: {status} ({body})");
     }
 }
 
@@ -201,10 +199,10 @@ fn capitalize(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flate2::read::GzDecoder;
     use std::env;
     use std::io::Read;
     use std::sync::Mutex;
-    use flate2::read::GzDecoder;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -216,8 +214,11 @@ mod tests {
         unsafe {
             env::remove_var("FASTSTATS_TEST_SERVER");
         }
-        let url = resolve_server_url("FASTSTATS_TEST_SERVER", "https://metrics.faststats.dev/v1/collect")
-            .expect("default url parses");
+        let url = resolve_server_url(
+            "FASTSTATS_TEST_SERVER",
+            "https://metrics.faststats.dev/v1/collect",
+        )
+        .expect("default url parses");
         assert_eq!(url.as_str(), "https://metrics.faststats.dev/v1/collect");
     }
 
@@ -228,8 +229,11 @@ mod tests {
         unsafe {
             env::set_var("FASTSTATS_TEST_SERVER", "https://example.com/custom");
         }
-        let url = resolve_server_url("FASTSTATS_TEST_SERVER", "https://metrics.faststats.dev/v1/collect")
-            .expect("override url parses");
+        let url = resolve_server_url(
+            "FASTSTATS_TEST_SERVER",
+            "https://metrics.faststats.dev/v1/collect",
+        )
+        .expect("override url parses");
         assert_eq!(url.as_str(), "https://example.com/custom");
         // SAFETY: see the lock note above.
         unsafe {
@@ -244,8 +248,11 @@ mod tests {
         unsafe {
             env::set_var("FASTSTATS_TEST_SERVER", "not a url");
         }
-        let url = resolve_server_url("FASTSTATS_TEST_SERVER", "https://metrics.faststats.dev/v1/collect")
-            .expect("falls back to default");
+        let url = resolve_server_url(
+            "FASTSTATS_TEST_SERVER",
+            "https://metrics.faststats.dev/v1/collect",
+        )
+        .expect("falls back to default");
         assert_eq!(url.as_str(), "https://metrics.faststats.dev/v1/collect");
         // SAFETY: see the lock note above.
         unsafe {
@@ -278,7 +285,9 @@ mod tests {
 
         let mut decoder = GzDecoder::new(&compressed[..]);
         let mut decompressed = Vec::new();
-        decoder.read_to_end(&mut decompressed).expect("decompression succeeds");
+        decoder
+            .read_to_end(&mut decompressed)
+            .expect("decompression succeeds");
         assert_eq!(decompressed, original);
     }
 

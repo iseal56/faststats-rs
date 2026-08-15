@@ -10,7 +10,7 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     #[error("error in initialization: {0}")]
     Initialization(String),
-    
+
     #[error("invalid {kind}: {reason}")]
     Validation { kind: &'static str, reason: String },
 

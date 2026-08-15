@@ -3,8 +3,8 @@
 //! terminal emulator name. Zero `crossterm` dependency is pulled in
 //! unless this feature is enabled.
 
-use serde_json::{json, Map, Value};
 use crossterm::terminal;
+use serde_json::{Map, Value, json};
 use std::env;
 
 /// Appends `terminal_columns`/`terminal_rows`/`terminal_emulator` into
@@ -38,9 +38,9 @@ fn detected_terminal_emulator() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
     use super::*;
-    use std::env::{set_var, remove_var};
+    use std::env::{remove_var, set_var};
+    use std::sync::Mutex;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -88,7 +88,10 @@ mod tests {
             set_var("TERM", "xterm-256color");
         }
 
-        assert_eq!(detected_terminal_emulator(), Some("xterm-256color".to_string()));
+        assert_eq!(
+            detected_terminal_emulator(),
+            Some("xterm-256color".to_string())
+        );
 
         unsafe { remove_var("TERM") };
     }

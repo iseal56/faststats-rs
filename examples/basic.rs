@@ -61,10 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .anonymize(Regex::new(r"sk-[A-Za-z0-9]{20,}").unwrap(), "[api_key]")
         })
         .feature_flags_factory(|factory| {
-            Ok(factory.add_flag(FeatureFlag::new(
-                "new_ui".try_into()?,
-                false,
-            ))?)
+            Ok(factory.add_flag(FeatureFlag::new("new_ui".try_into()?, false))?)
         })?
         .build()?;
 
@@ -78,7 +75,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(error_tracking) = client.error_tracking() {
         let mut context = Attributes::empty();
         context.put("step", "startup")?;
-        error_tracking.track_error("ConfigWarning", Some("using default config"), &[], Some(context));
+        error_tracking.track_error(
+            "ConfigWarning",
+            Some("using default config"),
+            &[],
+            Some(context),
+        );
     }
 
     // Read a feature flag (falls back to its default until a fetch

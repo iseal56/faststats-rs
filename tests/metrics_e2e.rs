@@ -8,11 +8,11 @@
 
 mod common;
 
+use flate2::read::GzDecoder;
+use serde_json::Value;
 use std::io::Read;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use flate2::read::GzDecoder;
-use serde_json::Value;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -40,7 +40,12 @@ async fn happy_path_submit_sends_expected_headers_and_body_shape() {
         .and(header("Content-Type", "application/octet-stream"))
         .and(header(
             "User-Agent",
-            format!("FastStats Rust SDK v{} ({}:{})", env!("CARGO_PKG_VERSION"), test_project_name(), test_version()),
+            format!(
+                "FastStats Rust SDK v{} ({}:{})",
+                env!("CARGO_PKG_VERSION"),
+                test_project_name(),
+                test_version()
+            ),
         ))
         .and(header(
             "Authorization",
@@ -86,12 +91,13 @@ async fn custom_metric_value_appears_in_submitted_payload() {
     point_all_services_at(&server.uri());
 
     let custom_metric = faststats_rs::Metric::new("shard_count", || 7u32).expect("valid metric");
-    let client = faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
-        .expect("valid client")
-        .metrics_factory(|f| f.add_metric(custom_metric))
-        .expect("factory configured")
-        .build()
-        .expect("client builds");
+    let client =
+        faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid client")
+            .metrics_factory(|f| f.add_metric(custom_metric))
+            .expect("factory configured")
+            .build()
+            .expect("client builds");
 
     let metrics = client.metrics().expect("metrics enabled by default");
     assert!(metrics.submit().await);
@@ -142,14 +148,17 @@ async fn on_flush_callback_runs_only_on_successful_submission() {
     let flushed = Arc::new(AtomicUsize::new(0));
     let flushed_clone = flushed.clone();
 
-    let client = faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
-        .expect("valid client")
-        .metrics_factory(|f| Ok(f.on_flush(move || {
-            flushed_clone.fetch_add(1, Ordering::SeqCst);
-        })))
-        .expect("factory configured")
-        .build()
-        .expect("client builds");
+    let client =
+        faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid client")
+            .metrics_factory(|f| {
+                Ok(f.on_flush(move || {
+                    flushed_clone.fetch_add(1, Ordering::SeqCst);
+                }))
+            })
+            .expect("factory configured")
+            .build()
+            .expect("client builds");
 
     let metrics = client.metrics().expect("metrics enabled by default");
     let submitted = metrics.submit().await;
@@ -184,12 +193,13 @@ async fn config_disabled_submit_metrics_prevents_scheduler_from_starting() {
     point_all_services_at(&server.uri());
 
     let config = Config::new(uuid::Uuid::nil()).set_submit_metrics(false);
-    let mut client = faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
-        .expect("valid client")
-        .config(config)
-        .error_tracking(false)
-        .build()
-        .expect("client builds");
+    let mut client =
+        faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid client")
+            .config(config)
+            .error_tracking(false)
+            .build()
+            .expect("client builds");
 
     client.start();
     // metrics service exists (developer left it enabled) but Config

@@ -1,22 +1,34 @@
 //! Built-in internal metrics reporting facts about the Rust/native
 //! platform the binary is running on.
 
-use serde_json::{json, Map, Value};
-use std::env::consts;
-use std::mem::size_of;
-use std::thread::available_parallelism;
 use os_info::Bitness;
+use serde_json::{Map, Value, json};
+use std::env::consts;
+use std::thread::available_parallelism;
 
 /// Appends the built-in platform metrics into `metrics`. Always called,
 /// regardless of `Config::additional_metrics`.
 pub fn append_internal_data(metrics: &mut Map<String, Value>, program_version: impl Into<String>) {
     let info = os_info::get();
     metrics.insert("os_name".to_string(), json!(info.os_type().to_string()));
-    metrics.insert("os_arch".to_string(), json!(consts::ARCH));
+    metrics.insert(
+        "os_arch".to_string(),
+        json!(info.architecture().unwrap_or(consts::ARCH).to_string()),
+    );
     metrics.insert("os_version".to_string(), json!(info.version().to_string()));
-    metrics.insert("pointer_width".to_string(), json!(if info.bitness() == Bitness::X32 { 32 } else { 64 }));
+    metrics.insert(
+        "pointer_width".to_string(),
+        json!(if info.bitness() == Bitness::X32 {
+            32
+        } else {
+            64
+        }),
+    );
     metrics.insert("core_count".to_string(), json!(cpu_count()));
-    metrics.insert("debug_assertions".to_string(), json!(cfg!(debug_assertions)));
+    metrics.insert(
+        "debug_assertions".to_string(),
+        json!(cfg!(debug_assertions)),
+    );
     metrics.insert("program_version".to_string(), json!(program_version.into()));
 }
 
@@ -27,8 +39,8 @@ fn cpu_count() -> usize {
 
 #[cfg(test)]
 mod tests {
-    use os_info::Type::Arch;
     use super::*;
+    use os_info::Type::Arch;
 
     #[test]
     fn appends_all_expected_keys() {

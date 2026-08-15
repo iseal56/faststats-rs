@@ -65,7 +65,7 @@ impl TrackedError {
             "context": context_json,
             "causes": causes_json,
         })
-            .to_string()
+        .to_string()
     }
 
     /// Serializes this tracked error into its wire representation. The
@@ -91,10 +91,10 @@ impl TrackedError {
         object.insert("stack".to_string(), Value::from(stack));
 
         object.insert("handled".to_string(), Value::from(self.handled));
-        if let Some(context) = &self.context {
-            if !context.is_empty() {
-                object.insert("context".to_string(), Value::Object(context.to_json_map()));
-            }
+        if let Some(context) = &self.context
+            && !context.is_empty()
+        {
+            object.insert("context".to_string(), Value::Object(context.to_json_map()));
         }
         if self.count > 1 {
             object.insert("count".to_string(), Value::from(self.count));
@@ -118,9 +118,7 @@ impl IgnoreRule {
     fn matches(&self, error_type: &str, message: Option<&str>) -> bool {
         match self {
             IgnoreRule::Type(t) => t == error_type,
-            IgnoreRule::MessagePattern(pattern) => {
-                message.is_some_and(|m| pattern.is_match(m))
-            }
+            IgnoreRule::MessagePattern(pattern) => message.is_some_and(|m| pattern.is_match(m)),
             IgnoreRule::TypeAndPattern(t, pattern) => {
                 t == error_type && message.is_some_and(|m| pattern.is_match(m))
             }
@@ -151,7 +149,9 @@ impl Tracker {
 
     /// Whether an error of this identity should be suppressed.
     fn is_ignored(&self, error_type: &str, message: Option<&str>) -> bool {
-        self.ignore_rules.iter().any(|rule| rule.matches(error_type, message))
+        self.ignore_rules
+            .iter()
+            .any(|rule| rule.matches(error_type, message))
     }
 
     /// Records an already-normalized error, incrementing the count if

@@ -6,10 +6,10 @@
 
 mod common;
 
-use std::io::Read;
-use std::panic::catch_unwind;
 use flate2::read::GzDecoder;
 use serde_json::Value;
+use std::io::Read;
+use std::panic::catch_unwind;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -38,7 +38,9 @@ async fn happy_path_tracked_error_is_submitted_with_expected_shape() {
 
     let (client, dir) = build_client_against(&server.uri(), |b| b);
 
-    let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+    let error_tracking = client
+        .error_tracking()
+        .expect("error tracking enabled by default");
     error_tracking.track_error("CustomError", Some("something broke"), &[], None);
 
     assert!(error_tracking.submit().await);
@@ -73,7 +75,9 @@ async fn deduplicated_errors_carry_a_literal_count_on_submission() {
 
     let (client, dir) = build_client_against(&server.uri(), |b| b);
 
-    let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+    let error_tracking = client
+        .error_tracking()
+        .expect("error tracking enabled by default");
     error_tracking.track_error("E", Some("m"), &["f".to_string()], None);
     error_tracking.track_error("E", Some("m"), &["f".to_string()], None);
     error_tracking.track_error("E", Some("m"), &["f".to_string()], None);
@@ -101,13 +105,16 @@ async fn ignore_rule_prevents_matching_error_from_ever_being_submitted() {
     let dir = set_fresh_state_dir();
     point_all_services_at(&server.uri());
 
-    let client = faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
-        .expect("valid client")
-        .error_tracking_factory(|f| f.ignore_error_type("NoisyError"))
-        .build()
-        .expect("client builds");
+    let client =
+        faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid client")
+            .error_tracking_factory(|f| f.ignore_error_type("NoisyError"))
+            .build()
+            .expect("client builds");
 
-    let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+    let error_tracking = client
+        .error_tracking()
+        .expect("error tracking enabled by default");
     error_tracking.track_error("NoisyError", Some("ignored"), &[], None);
 
     assert!(error_tracking.is_empty());
@@ -134,7 +141,9 @@ async fn anonymization_end_to_end_redacts_ip_and_home_path_before_submission() {
 
     let (client, dir) = build_client_against(&server.uri(), |b| b);
 
-    let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+    let error_tracking = client
+        .error_tracking()
+        .expect("error tracking enabled by default");
     error_tracking.track_error(
         "IoError",
         Some("failed to reach 10.0.0.5"),
@@ -168,13 +177,16 @@ async fn tracker_level_attributes_end_up_in_submitted_context() {
     let dir = set_fresh_state_dir();
     point_all_services_at(&server.uri());
 
-    let client = faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
-        .expect("valid client")
-        .error_tracking_factory(|f| f.attributes(attrs_with("environment", "staging")))
-        .build()
-        .expect("client builds");
+    let client =
+        faststats_rs::ClientBuilder::new(test_project_name(), test_version(), test_token())
+            .expect("valid client")
+            .error_tracking_factory(|f| f.attributes(attrs_with("environment", "staging")))
+            .build()
+            .expect("client builds");
 
-    let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+    let error_tracking = client
+        .error_tracking()
+        .expect("error tracking enabled by default");
     error_tracking.track_error("E", None, &[], None);
     assert!(error_tracking.submit().await);
 
@@ -199,7 +211,9 @@ async fn failure_path_non_2xx_response_returns_false_without_panicking() {
 
     let (client, dir) = build_client_against(&server.uri(), |b| b);
 
-    let error_tracking = client.error_tracking().expect("error tracking enabled by default");
+    let error_tracking = client
+        .error_tracking()
+        .expect("error tracking enabled by default");
     error_tracking.track_error("E", Some("boom"), &[], None);
 
     let submitted = error_tracking.submit().await;
@@ -223,7 +237,11 @@ async fn panic_hook_reports_unhandled_panic_end_to_end() {
     let (mut client, dir) = build_client_against(&server.uri(), |b| b.metrics(false));
     client.start();
 
-    let error_tracking = std::sync::Arc::clone(client.error_tracking().expect("error tracking enabled by default"));
+    let error_tracking = std::sync::Arc::clone(
+        client
+            .error_tracking()
+            .expect("error tracking enabled by default"),
+    );
 
     // Run the panicking closure with panic=unwind semantics captured
     // via catch_unwind, so this tests process itself doesn't abort.
@@ -231,7 +249,7 @@ async fn panic_hook_reports_unhandled_panic_end_to_end() {
         panic!("boom from e2e test");
     });
     assert!(result.is_err());
-    
+
     tokio::task::yield_now().await;
 
     assert!(!error_tracking.is_empty());

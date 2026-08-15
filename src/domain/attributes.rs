@@ -590,7 +590,9 @@ mod tests {
     #[test]
     fn put_null_value_is_not_stored() {
         let mut attrs = Attributes::empty();
-        attrs.put("absent", Option::<i32>::None).expect("null value");
+        attrs
+            .put("absent", Option::<i32>::None)
+            .expect("null value");
         assert!(!attrs.contains_key("absent"));
     }
 

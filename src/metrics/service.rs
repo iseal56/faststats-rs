@@ -14,7 +14,7 @@ use uuid::Uuid;
 use super::metric::Metric;
 use super::platform;
 use crate::error::Result;
-use crate::transport::{resolve_server_url, Transport};
+use crate::transport::{Transport, resolve_server_url};
 
 /// Cross-service events `Metrics` broadcasts so `ErrorTracker` can react
 /// without holding a direct reference to `Metrics`, avoiding a circular
@@ -90,13 +90,18 @@ impl Factory {
 
     /// `additional_metrics` gates whether custom metrics are included;
     /// internal metrics are always present.
-    pub fn build(self, transport: Arc<Transport>, server_id: Uuid, additional_metrics: bool) -> Result<Metrics> {
-        let url = resolve_server_url(METRICS_SERVER_ENV, DEFAULT_METRICS_SERVER)?.join(COLLECT_PATH).map_err(|e| {
-            crate::error::Error::InvalidServerUrl {
+    pub fn build(
+        self,
+        transport: Arc<Transport>,
+        server_id: Uuid,
+        additional_metrics: bool,
+    ) -> Result<Metrics> {
+        let url = resolve_server_url(METRICS_SERVER_ENV, DEFAULT_METRICS_SERVER)?
+            .join(COLLECT_PATH)
+            .map_err(|e| crate::error::Error::InvalidServerUrl {
                 env_var: METRICS_SERVER_ENV,
                 reason: e.to_string(),
-            }
-        })?;
+            })?;
         let (events, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
         Ok(Metrics {
             transport,
@@ -104,7 +109,11 @@ impl Factory {
             project_name: self.project_name,
             project_version: self.project_version,
             server_id,
-            metrics: if additional_metrics { self.metrics } else { Vec::new() },
+            metrics: if additional_metrics {
+                self.metrics
+            } else {
+                Vec::new()
+            },
             flush: self.flush,
             events,
         })
@@ -191,8 +200,14 @@ impl Metrics {
         self.append_data(&mut metrics);
 
         let mut data = Map::new();
-        data.insert("project_name".to_string(), Value::from(self.project_name.clone()));
-        data.insert("identifier".to_string(), Value::from(self.server_id.to_string()));
+        data.insert(
+            "project_name".to_string(),
+            Value::from(self.project_name.clone()),
+        );
+        data.insert(
+            "identifier".to_string(),
+            Value::from(self.server_id.to_string()),
+        );
         data.insert("data".to_string(), Value::Object(metrics));
         Value::Object(data)
     }
@@ -255,14 +270,19 @@ mod tests {
     use crate::validated::Token;
     use serde::Serialize;
     use std::env;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn test_transport() -> Arc<Transport> {
         let token = Token::new("a".repeat(32)).expect("valid token");
-        let sdk_info = SdkInfo::new("faststats-rs-tests", "0.0.0", "FastStats Rust SDK v0.0.0 (tests-project:0.0.0)").expect("valid sdk info");
+        let sdk_info = SdkInfo::new(
+            "faststats-rs-tests",
+            "0.0.0",
+            "FastStats Rust SDK v0.0.0 (tests-project:0.0.0)",
+        )
+        .expect("valid sdk info");
         Arc::new(Transport::new(token, sdk_info).expect("transport builds"))
     }
 
@@ -275,7 +295,9 @@ mod tests {
         let first = Metric::new("dup", || 1).expect("valid metrics");
         let second = Metric::new("dup", || 2).expect("valid metrics");
 
-        let factory = Factory::new("tests-project", "0.0.0").add_metric(first).expect("first add ok");
+        let factory = Factory::new("tests-project", "0.0.0")
+            .add_metric(first)
+            .expect("first add ok");
         assert!(factory.add_metric(second).is_err());
     }
 
@@ -298,19 +320,18 @@ mod tests {
             region: "eu-west".to_string(),
             shard_count: 3,
         })
-            .expect("valid metrics");
+        .expect("valid metrics");
 
-        let factory = Factory::new("tests-project", "0.0.0").add_metric(custom).expect("add ok");
+        let factory = Factory::new("tests-project", "0.0.0")
+            .add_metric(custom)
+            .expect("add ok");
         let metrics = factory
             .build(test_transport(), test_server_id(), true)
             .expect("builds");
 
         let data = metrics.create_data();
         assert_eq!(data["project_name"], "tests-project");
-        assert_eq!(
-            data["identifier"],
-            "00000000-0000-0000-0000-000000000001"
-        );
+        assert_eq!(data["identifier"], "00000000-0000-0000-0000-000000000001");
         assert!(data["data"]["os_name"].is_string());
         assert!(data["data"]["core_count"].is_number());
         assert_eq!(data["data"]["server_info"]["region"], "eu-west");
@@ -327,7 +348,9 @@ mod tests {
         }
 
         let custom = Metric::new("should_be_excluded", || 1).expect("valid metrics");
-        let factory = Factory::new("tests-project", "0.0.0").add_metric(custom).expect("add ok");
+        let factory = Factory::new("tests-project", "0.0.0")
+            .add_metric(custom)
+            .expect("add ok");
         let metrics = factory
             .build(test_transport(), test_server_id(), false)
             .expect("builds");
@@ -347,7 +370,9 @@ mod tests {
         }
 
         let colliding = Metric::new("os", || "should-not-appear").expect("valid metrics");
-        let factory = Factory::new("tests-project", "0.0.0").add_metric(colliding).expect("add ok");
+        let factory = Factory::new("tests-project", "0.0.0")
+            .add_metric(colliding)
+            .expect("add ok");
         let metrics = factory
             .build(test_transport(), test_server_id(), true)
             .expect("builds");
@@ -365,10 +390,13 @@ mod tests {
             env::remove_var(METRICS_SERVER_ENV);
         }
 
-        let failing: Metric =
-            Metric::try_new("failing", || Err::<Option<i32>, _>(crate::error::Error::validation("t", "boom")))
-                .expect("valid metrics");
-        let factory = Factory::new("tests-project", "0.0.0").add_metric(failing).expect("add ok");
+        let failing: Metric = Metric::try_new("failing", || {
+            Err::<Option<i32>, _>(crate::error::Error::validation("t", "boom"))
+        })
+        .expect("valid metrics");
+        let factory = Factory::new("tests-project", "0.0.0")
+            .add_metric(failing)
+            .expect("add ok");
         let metrics = factory
             .build(test_transport(), test_server_id(), true)
             .expect("builds");

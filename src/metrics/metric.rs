@@ -1,12 +1,12 @@
 //! The `Metric` abstraction: a developer-registered, lazily-computed
 //! piece of custom metrics data. Accepts any `Serialize` value.
 
-use std::fmt::Debug;
-use serde::Serialize;
-use serde_json::Value;
 use crate::domain::attributes::NonFiniteFloatCheck;
 use crate::error::{Error, Result};
 use crate::validated::Id;
+use serde::Serialize;
+use serde_json::Value;
+use std::fmt::Debug;
 
 /// A developer-registered custom metric: a validated id plus a
 /// closure that computes its value on demand.
@@ -66,7 +66,9 @@ impl Metric {
 
 impl Debug for Metric {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Metric").field("id", &self.id).finish_non_exhaustive()
+        f.debug_struct("Metric")
+            .field("id", &self.id)
+            .finish_non_exhaustive()
     }
 }
 
@@ -95,7 +97,7 @@ mod tests {
             shard_count: 3,
             beta: false,
         })
-            .expect("valid metric");
+        .expect("valid metric");
 
         let value = metric.compute().unwrap().expect("present");
         assert_eq!(value["region"], "eu-west");
@@ -133,7 +135,7 @@ mod tests {
         let metric: Metric = Metric::try_new("failing", || {
             Err::<Option<i32>, _>(Error::validation("tests", "boom"))
         })
-            .expect("valid metric");
+        .expect("valid metric");
         assert!(metric.compute().is_err());
     }
 
@@ -145,7 +147,8 @@ mod tests {
 
     #[test]
     fn none_returning_serialize_value_yields_none() {
-        let metric: Metric = Metric::new("maybe_null", || Option::<i32>::None).expect("valid metric");
+        let metric: Metric =
+            Metric::new("maybe_null", || Option::<i32>::None).expect("valid metric");
         assert_eq!(metric.compute().unwrap(), None);
     }
 }

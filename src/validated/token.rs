@@ -9,7 +9,10 @@ pub const PATTERN: &str = "[a-z0-9]{32}";
 
 /// Returns whether `value` matches `{PATTERN}`.
 fn matches_pattern(value: &str) -> bool {
-    value.len() == 32 && value.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+    value.len() == 32
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
 }
 
 /// A validated FastStats project token, matching `{PATTERN}`.

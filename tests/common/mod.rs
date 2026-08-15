@@ -100,7 +100,8 @@ pub fn build_client_against(
     let dir = set_fresh_state_dir();
     point_all_services_at(base_url);
 
-    let builder = ClientBuilder::new(test_project_name(), test_version(), test_token()).expect("valid client");
+    let builder = ClientBuilder::new(test_project_name(), test_version(), test_token())
+        .expect("valid client");
     let client = configure(builder).build().expect("client builds");
 
     (client, dir)

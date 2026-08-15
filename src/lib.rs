@@ -6,11 +6,11 @@ pub mod client;
 pub mod domain;
 pub mod error;
 pub mod error_tracking;
+pub mod feature_flags;
 pub mod features;
 pub mod metrics;
 pub mod transport;
 pub mod validated;
-pub mod feature_flags;
 
 pub use client::{Client, ClientBuilder};
 pub use domain::{Attributes, Config, SdkInfo};

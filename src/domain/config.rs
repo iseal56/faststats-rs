@@ -153,7 +153,12 @@ impl Config {
     pub(crate) fn to_persisted_string(&self) -> String {
         format!(
             "server_id={}\nenabled={}\nsubmit_metrics={}\nerror_tracking={}\nadditional_metrics={}\ndebug={}\n",
-            self.server_id, self.enabled, self.submit_metrics, self.error_tracking, self.additional_metrics, self.debug
+            self.server_id,
+            self.enabled,
+            self.submit_metrics,
+            self.error_tracking,
+            self.additional_metrics,
+            self.debug
         )
     }
 
@@ -226,8 +231,7 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn fixed_uuid() -> Uuid {
-        Uuid::parse_str("00000000-0000-0000-0000-000000000001")
-            .expect("valid literal UUID")
+        Uuid::parse_str("00000000-0000-0000-0000-000000000001").expect("valid literal UUID")
     }
 
     #[test]
@@ -250,8 +254,8 @@ mod tests {
     #[test]
     fn clone_with_server_id_replaces_only_server_id() {
         let original = Config::new(fixed_uuid()).set_debug(false);
-        let replaced_id = Uuid::parse_str("00000000-0000-0000-0000-000000000002")
-            .expect("valid literal uuid");
+        let replaced_id =
+            Uuid::parse_str("00000000-0000-0000-0000-000000000002").expect("valid literal uuid");
         let updated = original.clone_with_server_id(replaced_id);
 
         assert_eq!(updated.server_id(), replaced_id);
@@ -273,7 +277,9 @@ mod tests {
 
     #[test]
     fn env_override_disables_submit_metrics() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // SAFETY: `ENV_LOCK` serializes every test in this module that
         // touches process env vars.
         unsafe {
@@ -289,7 +295,9 @@ mod tests {
 
     #[test]
     fn env_override_is_case_insensitive() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // SAFETY: see the lock note above.
         unsafe {
             env::set_var("FASTSTATS_ERROR_TRACKING", "FALSE");
@@ -304,7 +312,9 @@ mod tests {
 
     #[test]
     fn unset_env_var_leaves_default() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // SAFETY: see the lock note above.
         unsafe {
             env::remove_var("FASTSTATS_ADDITIONAL_METRICS");
@@ -315,7 +325,9 @@ mod tests {
 
     #[test]
     fn invalid_env_value_leaves_default() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // SAFETY: see the lock note above.
         unsafe {
             env::set_var("FASTSTATS_DEBUG", "not-a-bool");

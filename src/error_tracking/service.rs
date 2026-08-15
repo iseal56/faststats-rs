@@ -3,7 +3,7 @@
 //! dedup, ignore rules, and the 30-minute submission scheduler.
 
 use std::error::Error as StdError;
-use std::panic::{set_hook, take_hook, PanicHookInfo};
+use std::panic::{PanicHookInfo, set_hook, take_hook};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
@@ -17,11 +17,11 @@ use tokio::time;
 use uuid::Uuid;
 
 use super::helper;
-use super::tracker::{CauseFrame, IgnoreRule, Tracker, TrackedError};
+use super::tracker::{CauseFrame, IgnoreRule, TrackedError, Tracker};
 use crate::domain::{Attributes, SdkInfo};
 use crate::error::Result;
 use crate::metrics::MetricsEvent;
-use crate::transport::{resolve_server_url, Transport};
+use crate::transport::{Transport, resolve_server_url};
 
 const ERROR_PATH: &str = "/v1/error";
 /// Env var overriding the error-tracker server base URL.
@@ -33,8 +33,10 @@ pub const SUBMISSION_PERIOD: Duration = Duration::from_secs(30 * 60);
 
 /// Global slot holding the previously-installed panic hook, so it can
 /// be restored on [`ErrorTracker::detach`].
-static PREVIOUS_HOOK: OnceLock<Mutex<Option<Box<dyn Fn(&PanicHookInfo<'_>) + Sync + Send + 'static>>>> =
-    OnceLock::new();
+#[allow(clippy::type_complexity)]
+static PREVIOUS_HOOK: OnceLock<
+    Mutex<Option<Box<dyn Fn(&PanicHookInfo<'_>) + Sync + Send + 'static>>>,
+> = OnceLock::new();
 
 /// Builds an [`ErrorTracker`].
 pub struct Factory {
@@ -150,8 +152,14 @@ impl ErrorTracker {
     /// regardless of whether a Tokio runtime is active yet. See
     /// [`ErrorTracker::spawn_metrics_event_listener`] for the other
     /// half of this wiring.
-    pub(crate) fn set_metrics_snapshot(&self, snapshot: impl Fn() -> Value + Send + Sync + 'static) {
-        *self.metrics_snapshot.lock().unwrap_or_else(|p| p.into_inner()) = Some(Box::new(snapshot));
+    pub(crate) fn set_metrics_snapshot(
+        &self,
+        snapshot: impl Fn() -> Value + Send + Sync + 'static,
+    ) {
+        *self
+            .metrics_snapshot
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = Some(Box::new(snapshot));
     }
 
     /// Spawns a background task draining a sibling `Metrics` service's
@@ -159,7 +167,10 @@ impl ErrorTracker {
     /// `CustomMetricFailed` as a tracked error. Requires an active
     /// Tokio runtime, so `Client::start` is the right place to call
     /// this, not `ClientBuilder::build`.
-    pub(crate) fn spawn_metrics_event_listener(self: &Arc<Self>, mut events: broadcast::Receiver<MetricsEvent>) {
+    pub(crate) fn spawn_metrics_event_listener(
+        self: &Arc<Self>,
+        mut events: broadcast::Receiver<MetricsEvent>,
+    ) {
         let tracker = Arc::clone(self);
         tokio::spawn(async move {
             loop {
@@ -265,7 +276,10 @@ impl ErrorTracker {
     /// Walks `error.source()` (skipping `error` itself), collecting a `(type, message, stack)` tuple per cause. Each cause's "stack"
     /// is just its own `Display` text as a single-frame placeholder; callers with a real per-cause stack should build `CauseFrame`s
     /// directly instead. A `PartialEq`-based cycle guard caps at a generous depth as a fallback.
-    fn collect_causes(&self, error: &(dyn StdError + 'static)) -> Vec<(String, Option<String>, Vec<String>)> {
+    fn collect_causes(
+        &self,
+        error: &(dyn StdError + 'static),
+    ) -> Vec<(String, Option<String>, Vec<String>)> {
         const MAX_CAUSE_DEPTH: usize = 16;
         let mut causes = Vec::new();
         let mut seen_messages = Vec::new();
@@ -289,31 +303,55 @@ impl ErrorTracker {
 
     /// Whether there are zero pending error reports.
     pub fn is_empty(&self) -> bool {
-        self.tracker.lock().unwrap_or_else(|p| p.into_inner()).is_empty()
+        self.tracker
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_empty()
     }
 
     /// Builds the full submission payload from currently-pending
     /// tracked errors. Draining resets the tracking table for the
     /// next window.
     pub(crate) fn create_data(&self) -> Option<Value> {
-        let pending = self.tracker.lock().unwrap_or_else(|p| p.into_inner()).drain();
+        let pending = self
+            .tracker
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .drain();
         if pending.is_empty() {
             return None;
         }
 
         let mut data = Map::new();
-        data.insert("identifier".to_string(), Value::from(self.server_id.to_string()));
+        data.insert(
+            "identifier".to_string(),
+            Value::from(self.server_id.to_string()),
+        );
         data.insert("language".to_string(), Value::from("rust"));
-        data.insert("project_name".to_string(), Value::from(self.project_name.clone()));
-        data.insert("sdk_name".to_string(), Value::from(self.sdk_info.name().to_string()));
-        data.insert("sdk_version".to_string(), Value::from(self.sdk_info.version().to_string()));
+        data.insert(
+            "project_name".to_string(),
+            Value::from(self.project_name.clone()),
+        );
+        data.insert(
+            "sdk_name".to_string(),
+            Value::from(self.sdk_info.name().to_string()),
+        );
+        data.insert(
+            "sdk_version".to_string(),
+            Value::from(self.sdk_info.version().to_string()),
+        );
 
         // Start from this tracker's own registered attributes, then merge in the sibling Metrics service's current snapshot, if wired up.
         let mut context = match &self.attributes {
             Some(attributes) if !attributes.is_empty() => attributes.to_json_map(),
             _ => Map::new(),
         };
-        if let Some(snapshot_fn) = &*self.metrics_snapshot.lock().unwrap_or_else(|p| p.into_inner()) {
+        #[allow(clippy::collapsible_if)]
+        if let Some(snapshot_fn) = &*self
+            .metrics_snapshot
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+        {
             if let Value::Object(metrics_map) = snapshot_fn() {
                 for (key, value) in metrics_map {
                     context.entry(key).or_insert(value);
@@ -351,7 +389,10 @@ impl ErrorTracker {
     /// `handled = false`, then chains to whatever hook was previously
     /// installed. Idempotent.
     pub fn install_panic_hook(self: &Arc<Self>) {
-        let mut installed = self.panic_hook_installed.lock().unwrap_or_else(|p| p.into_inner());
+        let mut installed = self
+            .panic_hook_installed
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         if *installed {
             return;
         }
@@ -366,26 +407,29 @@ impl ErrorTracker {
         let tracker = Arc::clone(self);
         set_hook(Box::new(move |panic_info| {
             let error_type = "panic".to_string();
-            let message = panic_info.payload().downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| {
-                panic_info
-                    .payload()
-                    .downcast_ref::<String>()
-                    .cloned()
-            });
+            let message = panic_info
+                .payload()
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| panic_info.payload().downcast_ref::<String>().cloned());
             let location = panic_info
                 .location()
                 .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
                 .unwrap_or_else(|| "unknown location".to_string());
             let stack = vec![location];
 
-            let thread_name = thread::current()
-                .name()
-                .unwrap_or("unnamed")
-                .to_string();
+            let thread_name = thread::current().name().unwrap_or("unnamed").to_string();
             let mut context = Attributes::empty();
             let _ = context.put("thread_name", thread_name);
 
-            tracker.record(error_type, message.as_deref(), &stack, false, Some(context), &[]);
+            tracker.record(
+                error_type,
+                message.as_deref(),
+                &stack,
+                false,
+                Some(context),
+                &[],
+            );
             if let Some(previous) = PREVIOUS_HOOK
                 .get_or_init(|| Mutex::new(None))
                 .lock()
@@ -402,7 +446,10 @@ impl ErrorTracker {
     /// Restores whatever panic hook was installed before
     /// [`ErrorTracker::install_panic_hook`]. A no-op if never installed.
     pub fn detach(&self) {
-        let mut installed = self.panic_hook_installed.lock().unwrap_or_else(|p| p.into_inner());
+        let mut installed = self
+            .panic_hook_installed
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         if !*installed {
             return;
         }
@@ -459,21 +506,31 @@ fn error_type_name(cause: &(dyn StdError + 'static)) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::env::{remove_var, set_var};
     use super::*;
     use crate::validated::Token;
+    use std::env::{remove_var, set_var};
     use std::sync::Mutex as StdMutex;
 
     static ENV_LOCK: StdMutex<()> = StdMutex::new(());
 
     fn test_transport() -> Arc<Transport> {
         let token = Token::new("a".repeat(32)).expect("valid token");
-        let sdk_info = SdkInfo::new("faststats-rs-tests", "0.0.0", "FastStats Rust SDK v0.0.0 (tests-project:0.0.0)").expect("valid sdk info");
+        let sdk_info = SdkInfo::new(
+            "faststats-rs-tests",
+            "0.0.0",
+            "FastStats Rust SDK v0.0.0 (tests-project:0.0.0)",
+        )
+        .expect("valid sdk info");
         Arc::new(Transport::new(token, sdk_info).expect("transport builds"))
     }
 
     fn test_sdk_info() -> SdkInfo {
-        SdkInfo::new("faststats-rs-tests", "0.0.0", "FastStats Rust SDK v0.0.0 (tests-project:0.0.0)").expect("valid sdk info")
+        SdkInfo::new(
+            "faststats-rs-tests",
+            "0.0.0",
+            "FastStats Rust SDK v0.0.0 (tests-project:0.0.0)",
+        )
+        .expect("valid sdk info")
     }
 
     fn test_server_id() -> Uuid {
@@ -528,7 +585,7 @@ mod tests {
         assert_eq!(errors[0]["message"], "something broke");
         assert_eq!(errors[0]["handled"], true);
     }
-    
+
     #[test]
     fn track_error_anonymizes_message_and_stack() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
@@ -626,7 +683,9 @@ mod tests {
         }
 
         let mut attrs = Attributes::empty();
-        attrs.put("environment", "staging").expect("valid attribute");
+        attrs
+            .put("environment", "staging")
+            .expect("valid attribute");
 
         let tracker = Factory::new("tests-project", test_sdk_info())
             .attributes(attrs)

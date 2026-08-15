@@ -37,7 +37,11 @@ impl FlagValue {
                 if let Some(n) = json.as_f64() {
                     return Some(FlagValue::Number(n));
                 }
-                json.as_str()?.trim().parse::<f64>().ok().map(FlagValue::Number)
+                json.as_str()?
+                    .trim()
+                    .parse::<f64>()
+                    .ok()
+                    .map(FlagValue::Number)
             }
             FlagValue::Boolean(_) => {
                 if let Some(b) = json.as_bool() {
@@ -110,7 +114,10 @@ mod tests {
         let value = FlagValue::from("hello");
         let json = value.to_json();
         assert_eq!(json, Value::String("hello".to_string()));
-        assert_eq!(value.parse_matching(&json), Some(FlagValue::String("hello".to_string())));
+        assert_eq!(
+            value.parse_matching(&json),
+            Some(FlagValue::String("hello".to_string()))
+        );
     }
 
     #[test]
@@ -146,14 +153,23 @@ mod tests {
     #[test]
     fn number_parse_matching_accepts_numeric_string() {
         let number_flag = FlagValue::from(1.0_f64);
-        assert_eq!(number_flag.parse_matching(&Value::from("12.5")), Some(FlagValue::Number(12.5)));
+        assert_eq!(
+            number_flag.parse_matching(&Value::from("12.5")),
+            Some(FlagValue::Number(12.5))
+        );
     }
 
     #[test]
     fn boolean_parse_matching_accepts_true_false_strings() {
         let bool_flag = FlagValue::from(false);
-        assert_eq!(bool_flag.parse_matching(&Value::from("true")), Some(FlagValue::Boolean(true)));
-        assert_eq!(bool_flag.parse_matching(&Value::from("false")), Some(FlagValue::Boolean(false)));
+        assert_eq!(
+            bool_flag.parse_matching(&Value::from("true")),
+            Some(FlagValue::Boolean(true))
+        );
+        assert_eq!(
+            bool_flag.parse_matching(&Value::from("false")),
+            Some(FlagValue::Boolean(false))
+        );
         assert_eq!(bool_flag.parse_matching(&Value::from("yes")), None);
     }
 
