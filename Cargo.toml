@@ -17,7 +17,7 @@ regex = "1"
 flate2 = "1"
 log = "0.4"
 crossterm = { version = "0.29.0", optional = true }
-pumpkin-plugin-api = { version = "0.1.0", git = "https://github.com/Pumpkin-MC/Pumpkin", optional = true }
+#pumpkin-plugin-api = { version = "0.1.0", git = "https://github.com/Pumpkin-MC/Pumpkin", optional = true }
 os_info = "3.15"
 
 [dev-dependencies]
@@ -26,4 +26,4 @@ wiremock = "0.6"
 [features]
 default = []
 terminal = ["dep:crossterm"]
-pumpkinmc = ["dep:pumpkin-plugin-api"]
+#pumpkinmc = ["dep:pumpkin-plugin-api"]
