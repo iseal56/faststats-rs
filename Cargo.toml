@@ -3,7 +3,7 @@ name = "faststats-rs"
 version = "0.1.0"
 edition = "2024"
 description = "A Rust SDK for FastStats: metrics submission, error/panic tracking, and feature flags."
-license-file = "LICENSE"
+license-file = "LICENCE"
 repository = "https://github.com/iseal56/faststats-rs"
 
 [dependencies]
