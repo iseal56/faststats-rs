@@ -26,7 +26,7 @@ fn decode_gzip_json(bytes: &[u8]) -> Value {
 
 #[tokio::test]
 async fn happy_path_tracked_error_is_submitted_with_expected_shape() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -63,7 +63,7 @@ async fn happy_path_tracked_error_is_submitted_with_expected_shape() {
 
 #[tokio::test]
 async fn deduplicated_errors_carry_a_literal_count_on_submission() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -95,7 +95,7 @@ async fn deduplicated_errors_carry_a_literal_count_on_submission() {
 
 #[tokio::test]
 async fn ignore_rule_prevents_matching_error_from_ever_being_submitted() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     // No mock registered on purpose: if a request were sent (it
@@ -129,7 +129,7 @@ async fn ignore_rule_prevents_matching_error_from_ever_being_submitted() {
 
 #[tokio::test]
 async fn anonymization_end_to_end_redacts_ip_and_home_path_before_submission() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -164,7 +164,7 @@ async fn anonymization_end_to_end_redacts_ip_and_home_path_before_submission() {
 
 #[tokio::test]
 async fn tracker_level_attributes_end_up_in_submitted_context() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -199,7 +199,7 @@ async fn tracker_level_attributes_end_up_in_submitted_context() {
 
 #[tokio::test]
 async fn failure_path_non_2xx_response_returns_false_without_panicking() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -224,7 +224,7 @@ async fn failure_path_non_2xx_response_returns_false_without_panicking() {
 
 #[tokio::test]
 async fn panic_hook_reports_unhandled_panic_end_to_end() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))

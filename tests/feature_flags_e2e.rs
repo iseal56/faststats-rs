@@ -21,7 +21,7 @@ fn parse_request_body(request: &Request) -> Value {
 
 #[tokio::test]
 async fn happy_path_fetch_caches_value_and_matches_request_shape() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -74,7 +74,7 @@ async fn happy_path_fetch_caches_value_and_matches_request_shape() {
 
 #[tokio::test]
 async fn ttl_expiry_triggers_a_fresh_fetch() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -121,7 +121,7 @@ async fn ttl_expiry_triggers_a_fresh_fetch() {
 
 #[tokio::test]
 async fn opt_in_posts_then_fetches_and_updates_cache() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -176,7 +176,7 @@ async fn opt_in_posts_then_fetches_and_updates_cache() {
 
 #[tokio::test]
 async fn opt_out_posts_then_fetches_and_updates_cache() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -218,7 +218,7 @@ async fn opt_out_posts_then_fetches_and_updates_cache() {
 
 #[tokio::test]
 async fn concurrent_fetches_for_same_id_share_exactly_one_network_request() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -274,7 +274,7 @@ async fn concurrent_fetches_for_same_id_share_exactly_one_network_request() {
 
 #[tokio::test]
 async fn failure_path_non_2xx_check_response_returns_err_without_panicking() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -309,7 +309,7 @@ async fn failure_path_non_2xx_check_response_returns_err_without_panicking() {
 
 #[tokio::test]
 async fn developer_disabled_feature_flags_service_is_never_constructed() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     // No mock registered: any request would fail the tests.
@@ -323,7 +323,7 @@ async fn developer_disabled_feature_flags_service_is_never_constructed() {
 
 #[tokio::test]
 async fn config_disabled_makes_feature_flags_inactive_but_still_constructed() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
 

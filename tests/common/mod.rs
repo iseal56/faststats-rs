@@ -10,13 +10,13 @@
 use std::env;
 use std::fs::remove_dir_all;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use faststats_rs::{Attributes, Client, ClientBuilder, Id, Token};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 /// Serializes every e2e tests that touches process-global env vars.
-pub static ENV_LOCK: Mutex<()> = Mutex::new(());
+pub static ENV_LOCK: Mutex<()> = Mutex::const_new(());
 
 /// A valid 32-char lowercase-alphanumeric tests token.
 pub fn test_token() -> Token {
@@ -36,6 +36,11 @@ pub fn test_version() -> &'static str {
 }
 
 /// A validated [`Id`] for metrics/feature-flag ids in tests.
+///
+/// Not every `tests/*_e2e.rs` binary that pulls in this shared module
+/// uses this helper (each compiles `common` fresh as its own crate),
+/// so it's allowed to go unused in some of them.
+#[allow(dead_code)]
 pub fn test_id(value: &str) -> Id {
     Id::new(value).expect("valid id")
 }
@@ -115,6 +120,7 @@ pub fn teardown(dir: &Path) {
 
 /// A single-key [`Attributes`] convenience builder for request-shape
 /// assertions.
+#[allow(dead_code)]
 pub fn attrs_with(key: &str, value: &str) -> Attributes {
     let mut attrs = Attributes::empty();
     attrs.put(key, value).expect("valid attribute");

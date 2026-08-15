@@ -417,9 +417,8 @@ mod tests {
     use crate::domain::SdkInfo;
     use crate::validated::Token;
     use std::env::{remove_var, set_var};
-    use std::sync::Mutex as StdMutex;
 
-    static ENV_LOCK: StdMutex<()> = StdMutex::new(());
+    static ENV_LOCK: AsyncMutex<()> = AsyncMutex::const_new(());
 
     fn test_transport() -> Arc<Transport> {
         let token = Token::new("a".repeat(32)).expect("valid token");
@@ -457,7 +456,7 @@ mod tests {
 
     #[tokio::test]
     async fn when_ready_errors_for_unknown_flag() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -470,7 +469,7 @@ mod tests {
 
     #[tokio::test]
     async fn when_ready_returns_cached_value_without_network_when_valid() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         // Deliberately unreachable: if when_ready() hit the network
         // despite a valid cache entry, this tests would fail.
         unsafe {
@@ -506,7 +505,7 @@ mod tests {
 
     #[tokio::test]
     async fn when_ready_propagates_fetch_failure_rather_than_falling_back() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             set_var(FLAGS_SERVER_ENV, "http://127.0.0.1:1");
         }
@@ -532,7 +531,7 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_against_unreachable_server_returns_err_not_panic() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             set_var(FLAGS_SERVER_ENV, "http://127.0.0.1:1");
         }
@@ -553,7 +552,7 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_unknown_flag_id_returns_err() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -566,7 +565,7 @@ mod tests {
 
     #[tokio::test]
     async fn opt_in_unknown_flag_returns_err() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -581,7 +580,7 @@ mod tests {
     async fn opt_in_against_unreachable_server_does_not_touch_cache() {
         // On a failed opt POST, the follow-up fetch never happens and
         // the cache is untouched.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             set_var(FLAGS_SERVER_ENV, "http://127.0.0.1:1");
         }
@@ -621,7 +620,7 @@ mod tests {
 
     #[test]
     fn build_request_merges_service_and_per_flag_attributes() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -665,7 +664,7 @@ mod tests {
 
     #[test]
     fn build_request_omits_attributes_when_none_registered() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -682,7 +681,7 @@ mod tests {
         // No mock server is available, so this asserts the weaker
         // property that both concurrent calls resolve to the same
         // kind of outcome via the shared watch-channel path.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             set_var(FLAGS_SERVER_ENV, "http://127.0.0.1:1");
         }
@@ -713,7 +712,7 @@ mod tests {
 
     #[tokio::test]
     async fn cached_returns_none_for_unregistered_flag() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -726,7 +725,7 @@ mod tests {
 
     #[tokio::test]
     async fn cached_returns_none_when_nothing_fetched_yet() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             remove_var(FLAGS_SERVER_ENV);
         }
@@ -743,7 +742,7 @@ mod tests {
 
     #[tokio::test]
     async fn cached_returns_value_without_network_when_valid() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         // Deliberately unreachable: cached() must never touch the
         // network regardless of cache state.
         unsafe {
@@ -778,7 +777,7 @@ mod tests {
 
     #[tokio::test]
     async fn when_ready_future_resolves_like_when_ready() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             set_var(FLAGS_SERVER_ENV, "http://127.0.0.1:1");
         }
@@ -804,7 +803,7 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_future_resolves_like_fetch() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         unsafe {
             set_var(FLAGS_SERVER_ENV, "http://127.0.0.1:1");
         }

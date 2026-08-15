@@ -493,9 +493,9 @@ mod state {
     use std::env;
     use std::fs;
     use std::path::{Path, PathBuf};
-    #[cfg(test)]
-    use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
+    #[cfg(test)]
+    use tokio::sync::Mutex;
     use uuid::Uuid;
 
     use crate::domain::Config;
@@ -523,7 +523,7 @@ mod state {
     /// first-run gate, since all of those are process-wide state shared
     /// across `state::tests` and the outer `client::tests` module.
     #[cfg(test)]
-    pub(crate) static STATE_TEST_LOCK: Mutex<()> = Mutex::new(());
+    pub(crate) static STATE_TEST_LOCK: Mutex<()> = Mutex::const_new(());
 
     /// The result of resolving first-boot state: the persisted
     /// [`Config`] (as read from, or just written to, the state file),
@@ -607,7 +607,7 @@ mod state {
 
         #[test]
         fn first_call_in_fresh_dir_is_first_boot_and_persists() {
-            let _guard = STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+            let _guard = STATE_TEST_LOCK.blocking_lock();
             reset_first_run_gate();
             // SAFETY: `_guard` (STATE_TEST_LOCK) serializes all env-mutating
             // tests in this module.
@@ -629,7 +629,7 @@ mod state {
 
         #[test]
         fn corrupt_state_file_is_treated_as_first_boot() {
-            let _guard = STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+            let _guard = STATE_TEST_LOCK.blocking_lock();
             reset_first_run_gate();
             // SAFETY: see `first_call_in_fresh_dir_is_first_boot_and_persists`.
             unsafe { env::remove_var(FORCE_ENABLED_ENV) };
@@ -653,7 +653,7 @@ mod state {
 
         #[test]
         fn first_run_gate_is_process_global_not_per_directory() {
-            let _guard = STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+            let _guard = STATE_TEST_LOCK.blocking_lock();
             reset_first_run_gate();
             // SAFETY: see `first_call_in_fresh_dir_is_first_boot_and_persists`.
             unsafe { env::remove_var(FORCE_ENABLED_ENV) };
@@ -676,7 +676,7 @@ mod state {
 
         #[test]
         fn force_enabled_env_overrides_first_boot_skip() {
-            let _guard = STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+            let _guard = STATE_TEST_LOCK.blocking_lock();
             reset_first_run_gate();
             let dir = env::temp_dir().join(format!("faststats-tests-{}", Uuid::new_v4()));
             // SAFETY: see `first_call_in_fresh_dir_is_first_boot_and_persists`.
@@ -697,7 +697,7 @@ mod state {
 
         #[test]
         fn config_file_is_always_written_back() {
-            let _guard = STATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+            let _guard = STATE_TEST_LOCK.blocking_lock();
             reset_first_run_gate();
             // SAFETY: see `first_call_in_fresh_dir_is_first_boot_and_persists`.
             unsafe { env::remove_var(FORCE_ENABLED_ENV) };
@@ -739,9 +739,7 @@ mod tests {
 
     #[test]
     fn fresh_state_dir_produces_first_boot_client() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -763,9 +761,7 @@ mod tests {
 
     #[test]
     fn force_enabled_env_makes_first_client_not_first_boot() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -789,9 +785,7 @@ mod tests {
 
     #[test]
     fn developer_config_and_persisted_file_config_are_anded_together() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -824,9 +818,7 @@ mod tests {
 
     #[test]
     fn state_file_is_written_under_the_configured_directory() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -848,9 +840,7 @@ mod tests {
 
     #[test]
     fn pre_existing_state_dir_produces_non_first_boot_client() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -878,9 +868,7 @@ mod tests {
 
     #[test]
     fn first_boot_start_does_not_spawn_submission_tasks() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -909,9 +897,7 @@ mod tests {
 
     #[tokio::test]
     async fn start_called_twice_is_idempotent() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.lock().await;
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -950,9 +936,7 @@ mod tests {
 
     #[tokio::test]
     async fn shutdown_before_start_is_a_no_op() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.lock().await;
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -977,9 +961,7 @@ mod tests {
 
     #[test]
     fn developer_enabled_but_config_disabled_service_stays_off() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -1016,9 +998,7 @@ mod tests {
 
     #[test]
     fn developer_disabled_service_is_never_constructed_even_if_config_enables_it() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -1050,9 +1030,7 @@ mod tests {
 
     #[test]
     fn feature_flags_active_requires_both_developer_and_config_enable() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.blocking_lock();
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -1084,9 +1062,7 @@ mod tests {
 
     #[tokio::test]
     async fn shutdown_on_a_never_started_client_does_not_panic() {
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.lock().await;
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -1113,9 +1089,7 @@ mod tests {
     #[tokio::test]
     async fn error_tracking_context_includes_metrics_snapshot_once_wired() {
         // build() wires the metrics-snapshot half synchronously, before start()
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.lock().await;
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {
@@ -1159,9 +1133,7 @@ mod tests {
         // regression tests for audit items 7/8: a custom metric that
         // fails to compute should show up in error tracking once
         // Client::start has spawned the MetricsEvent listener task
-        let _guard = state::STATE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let _guard = state::STATE_TEST_LOCK.lock().await;
         state::reset_first_run_gate_for_tests();
         let dir = fresh_state_dir();
         unsafe {

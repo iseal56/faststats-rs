@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .anonymize(Regex::new(r"sk-[A-Za-z0-9]{20,}").unwrap(), "[api_key]")
         })
         .feature_flags_factory(|factory| {
-            Ok(factory.add_flag(FeatureFlag::new("new_ui".try_into()?, false))?)
+            factory.add_flag(FeatureFlag::new("new_ui".try_into()?, false))
         })?
         .build()?;
 
@@ -85,11 +85,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Read a feature flag (falls back to its default until a fetch
     // succeeds, or immediately if `feature_flags_active()` is false).
-    if let Some(feature_flags) = client.feature_flags() {
-        if client.feature_flags_active() {
-            let new_ui = feature_flags.when_ready(&"new_ui".try_into()?).await?;
-            println!("new_ui flag: {new_ui:?}");
-        }
+    if let Some(feature_flags) = client.feature_flags()
+        && client.feature_flags_active()
+    {
+        let new_ui = feature_flags.when_ready(&"new_ui".try_into()?).await?;
+        println!("new_ui flag: {new_ui:?}");
     }
 
     // ... application logic would run here ...

@@ -40,7 +40,6 @@ fn cpu_count() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use os_info::Type::Arch;
 
     #[test]
     fn appends_all_expected_keys() {

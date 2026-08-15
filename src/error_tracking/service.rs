@@ -509,9 +509,9 @@ mod tests {
     use super::*;
     use crate::validated::Token;
     use std::env::{remove_var, set_var};
-    use std::sync::Mutex as StdMutex;
+    use tokio::sync::Mutex as TokioMutex;
 
-    static ENV_LOCK: StdMutex<()> = StdMutex::new(());
+    static ENV_LOCK: TokioMutex<()> = TokioMutex::const_new(());
 
     fn test_transport() -> Arc<Transport> {
         let token = Token::new("a".repeat(32)).expect("valid token");
@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn no_pending_errors_yields_no_payload() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -556,7 +556,7 @@ mod tests {
 
     #[test]
     fn track_error_populates_payload_shape() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn track_error_anonymizes_message_and_stack() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -616,7 +616,7 @@ mod tests {
 
     #[test]
     fn ignored_error_type_is_never_recorded() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn duplicate_errors_are_deduped_with_a_count() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     fn create_data_drains_pending_errors() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -675,7 +675,7 @@ mod tests {
 
     #[test]
     fn tracker_level_attributes_appear_as_context() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn per_error_attributes_appear_on_the_error_entry() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -720,7 +720,7 @@ mod tests {
 
     #[tokio::test]
     async fn submit_against_unreachable_server_returns_false_not_panic() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -744,7 +744,7 @@ mod tests {
 
     #[tokio::test]
     async fn submit_with_no_pending_errors_returns_true_without_network() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         // Deliberately unreachable: if submit() tried to send a
         // request despite having nothing pending, this would fail.
         // SAFETY: `ENV_LOCK` serializes every test in this module

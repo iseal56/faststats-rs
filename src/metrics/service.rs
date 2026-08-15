@@ -270,10 +270,11 @@ mod tests {
     use crate::validated::Token;
     use serde::Serialize;
     use std::env;
-    use std::sync::Mutex;
+    use std::sync::Mutex as StdMutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::sync::Mutex as TokioMutex;
 
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    static ENV_LOCK: TokioMutex<()> = TokioMutex::const_new(());
 
     fn test_transport() -> Arc<Transport> {
         let token = Token::new("a".repeat(32)).expect("valid token");
@@ -303,7 +304,7 @@ mod tests {
 
     #[test]
     fn builds_payload_with_internal_and_custom_metrics() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -340,7 +341,7 @@ mod tests {
 
     #[test]
     fn custom_metrics_excluded_when_additional_metrics_disabled() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -362,7 +363,7 @@ mod tests {
 
     #[test]
     fn duplicate_id_against_internal_metric_is_skipped_not_fatal() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -383,7 +384,7 @@ mod tests {
 
     #[test]
     fn failing_custom_metric_does_not_prevent_other_data() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -408,7 +409,7 @@ mod tests {
 
     #[test]
     fn on_flush_callbacks_chain_in_registration_order() {
-        let calls = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let calls = Arc::new(StdMutex::new(Vec::<u8>::new()));
         let calls_a = calls.clone();
         let calls_b = calls.clone();
 
@@ -423,7 +424,7 @@ mod tests {
 
     #[test]
     fn initial_delay_defaults_to_30_seconds_when_unset() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -434,7 +435,7 @@ mod tests {
 
     #[test]
     fn initial_delay_respects_env_override() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -450,7 +451,7 @@ mod tests {
 
     #[test]
     fn initial_delay_falls_back_on_invalid_value() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.blocking_lock();
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {
@@ -466,7 +467,7 @@ mod tests {
 
     #[tokio::test]
     async fn submit_against_unreachable_server_returns_false_not_panic() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = ENV_LOCK.lock().await;
         // SAFETY: `ENV_LOCK` serializes every test in this module
         // that touches process env vars.
         unsafe {

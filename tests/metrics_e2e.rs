@@ -31,7 +31,7 @@ fn decode_gzip_json(bytes: &[u8]) -> Value {
 
 #[tokio::test]
 async fn happy_path_submit_sends_expected_headers_and_body_shape() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -77,7 +77,7 @@ async fn happy_path_submit_sends_expected_headers_and_body_shape() {
 
 #[tokio::test]
 async fn custom_metric_value_appears_in_submitted_payload() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -111,7 +111,7 @@ async fn custom_metric_value_appears_in_submitted_payload() {
 
 #[tokio::test]
 async fn failure_path_non_2xx_response_returns_false_without_panicking() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -132,7 +132,7 @@ async fn failure_path_non_2xx_response_returns_false_without_panicking() {
 
 #[tokio::test]
 async fn on_flush_callback_runs_only_on_successful_submission() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -170,7 +170,7 @@ async fn on_flush_callback_runs_only_on_successful_submission() {
 
 #[tokio::test]
 async fn metrics_service_disabled_by_developer_is_never_constructed() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
     // No mock registered: the tests fails loudly (via wiremock's
@@ -185,7 +185,7 @@ async fn metrics_service_disabled_by_developer_is_never_constructed() {
 
 #[tokio::test]
 async fn config_disabled_submit_metrics_prevents_scheduler_from_starting() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = ENV_LOCK.lock().await;
 
     let server = MockServer::start().await;
 
