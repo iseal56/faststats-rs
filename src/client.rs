@@ -1,3 +1,5 @@
+#[cfg(feature = "use_tokio")]
+pub mod async_impl {
 //! The public [`Client`]/[`ClientBuilder`] facade: ties [`Config`] +
 //! [`crate::validated::Token`] + [`SdkInfo`] + [`Transport`] and the three
 //! services (metrics, error tracking, feature flags) together, mirroring
@@ -1194,3 +1196,60 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 }
+}
+#[cfg(feature = "use_tokio")]
+pub use async_impl::*;
+
+#[cfg(feature = "pumpkinmc")]
+pub mod sync_impl {
+    use std::sync::Arc;
+    use crate::error::Result;
+    use crate::domain::{Config, SdkInfo};
+    use crate::validated::Token;
+    use crate::metrics::{Factory as MetricsFactory, Metrics};
+    use crate::error_tracking::{ErrorTracker, ErrorTrackerFactory};
+    use crate::feature_flags::service::{FeatureFlags, Factory as FeatureFlagsFactory};
+    
+    pub struct ClientBuilder {
+        config: Config,
+        token: Token,
+        sdk_info: SdkInfo,
+    }
+    impl ClientBuilder {
+        pub fn new(_p: impl Into<String>, _v: impl Into<String>, token: Token) -> Result<Self> {
+            Ok(ClientBuilder { config: Config::from_env(uuid::Uuid::nil()), token, sdk_info: SdkInfo::new("a","b","c").unwrap() })
+        }
+        pub fn new_with_sdk_info(_p: impl Into<String>, token: Token, sdk_info: SdkInfo) -> Self {
+            ClientBuilder { config: Config::from_env(uuid::Uuid::nil()), token, sdk_info }
+        }
+        pub fn config(mut self, config: Config) -> Self { self.config = config; self }
+        pub fn metrics(self, _enabled: bool) -> Self { self }
+        pub fn error_tracking(self, _enabled: bool) -> Self { self }
+        pub fn feature_flags(self, _enabled: bool) -> Self { self }
+        pub fn metrics_factory(self, _configure: impl FnOnce(MetricsFactory) -> Result<MetricsFactory>) -> Result<Self> { Ok(self) }
+        pub fn error_tracking_factory(self, _configure: impl FnOnce(ErrorTrackerFactory) -> ErrorTrackerFactory) -> Self { self }
+        pub fn feature_flags_factory(self, _configure: impl FnOnce(FeatureFlagsFactory) -> Result<FeatureFlagsFactory>) -> Result<Self> { Ok(self) }
+        pub fn build(self) -> Result<Client> { Ok(Client{}) }
+    }
+    pub struct Client {}
+    impl Client {
+        pub fn config(&self) -> &Config { unimplemented!() }
+        pub fn token(&self) -> &Token { unimplemented!() }
+        pub fn sdk_info(&self) -> &SdkInfo { unimplemented!() }
+        pub fn metrics(&self) -> Option<&Arc<Metrics>> { None }
+        pub fn error_tracking(&self) -> Option<&Arc<ErrorTracker>> { None }
+        pub fn feature_flags(&self) -> Option<&Arc<FeatureFlags>> { None }
+        pub fn is_first_boot(&self) -> bool { false }
+        pub fn is_ready(&self) -> bool { true }
+        pub fn feature_flags_active(&self) -> bool { true }
+        pub fn start(&mut self, _context: &pumpkin_plugin_api::Context) {}
+        pub fn shutdown(&mut self) {}
+    }
+    pub struct State {
+        pub config: Config,
+        pub is_first_boot: bool,
+    }
+    pub fn load_or_init(_default_config: &Config) -> Result<State> { unimplemented!() }
+}
+#[cfg(feature = "pumpkinmc")]
+pub use sync_impl::*;

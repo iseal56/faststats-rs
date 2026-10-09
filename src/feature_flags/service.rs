@@ -1,3 +1,5 @@
+#[cfg(feature = "use_tokio")]
+pub mod async_impl {
 //! The feature flag service.
 //!
 //! Notable differences from metrics/error tracking: TTL is
@@ -12,14 +14,14 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::Url;
+use url::Url;
 use serde_json::{Map, Value};
 use tokio::sync::{Mutex as AsyncMutex, watch};
 use uuid::Uuid;
 
-use super::cache::CachedValue;
-use super::flag::FeatureFlag;
-use super::value::FlagValue;
+use crate::feature_flags::cache::CachedValue;
+use crate::feature_flags::flag::FeatureFlag;
+use crate::feature_flags::value::FlagValue;
 use crate::domain::Attributes;
 use crate::error::{Error, Result};
 use crate::transport::{Transport, resolve_server_url};
@@ -413,7 +415,7 @@ fn clone_result(result: &Result<FlagValue>) -> Result<FlagValue> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::feature_flags::*;
     use crate::domain::SdkInfo;
     use crate::validated::Token;
     use std::env::{remove_var, set_var};
@@ -827,3 +829,43 @@ mod tests {
         }
     }
 }
+}
+#[cfg(feature = "use_tokio")]
+pub use async_impl::*;
+
+#[cfg(feature = "pumpkinmc")]
+pub mod sync_impl {
+    use std::sync::Arc;
+    use std::time::Duration;
+    use std::pin::Pin;
+    use std::future::Future;
+    use crate::error::Result;
+    use crate::domain::Attributes;
+    use crate::feature_flags::flag::FeatureFlag;
+    use crate::feature_flags::value::FlagValue;
+    use crate::transport::Transport;
+    use crate::validated::Id;
+    use uuid::Uuid;
+    pub const DEFAULT_TTL: Duration = Duration::from_secs(5 * 60);
+    pub struct Factory {}
+    impl Factory {
+        pub fn new() -> Self { Factory {} }
+        pub fn add_flag(self, _flag: FeatureFlag) -> Result<Self> { Ok(self) }
+        pub fn attributes(self, _attributes: Attributes) -> Self { self }
+        pub fn ttl(self, _ttl: Duration) -> Self { self }
+        pub fn build(self, _transport: Arc<Transport>, _server_id: Uuid) -> Result<FeatureFlags> { Ok(FeatureFlags{}) }
+    }
+    pub struct FeatureFlags {}
+    impl FeatureFlags {
+        pub fn ttl(&self) -> Duration { DEFAULT_TTL }
+        pub fn cached(&self, _id: &Id) -> Option<FlagValue> { None }
+        pub fn when_ready(&self, _id: &Id) -> Result<FlagValue> { unimplemented!() }
+        pub fn when_ready_future<'a>(&'a self, _id: &'a Id) -> Pin<Box<dyn Future<Output = Result<FlagValue>> + Send + 'a>> { unimplemented!() }
+        pub fn fetch_future<'a>(&'a self, _id: &'a Id) -> Pin<Box<dyn Future<Output = Result<FlagValue>> + Send + 'a>> { unimplemented!() }
+        pub fn fetch(&self, _id: &Id) -> Result<FlagValue> { unimplemented!() }
+        pub fn opt_in(&self, _id: &Id) -> Result<FlagValue> { unimplemented!() }
+        pub fn opt_out(&self, _id: &Id) -> Result<FlagValue> { unimplemented!() }
+    }
+}
+#[cfg(feature = "pumpkinmc")]
+pub use sync_impl::*;

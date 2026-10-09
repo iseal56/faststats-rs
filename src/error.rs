@@ -18,7 +18,11 @@ pub enum Error {
     Serialization(#[from] serde_json::Error),
 
     #[error("transport error: {0}")]
+    #[cfg(feature = "use_tokio")]
     Transport(#[from] reqwest::Error),
+    #[error("transport error: {0}")]
+    #[cfg(feature = "pumpkinmc")]
+    Transport(#[from] ureq::Error),
 
     #[error("compression error: {0}")]
     Compression(#[from] io::Error),

@@ -1,3 +1,5 @@
+#[cfg(feature = "use_tokio")]
+pub mod async_impl {
 //! Shared low-level submission transport used by every FastStats
 //! service (metrics, error tracking, feature flags).
 
@@ -7,7 +9,8 @@ use std::time::Duration;
 
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use reqwest::{Client, StatusCode, Url};
+use reqwest::{Client, StatusCode};
+use url::Url;
 use serde_json::Value;
 
 use crate::domain::sdk_info::SdkInfo;
@@ -345,3 +348,47 @@ mod tests {
         assert!(!outcome.has_warnings());
     }
 }
+}
+#[cfg(feature = "use_tokio")]
+pub use async_impl::*;
+
+#[cfg(feature = "pumpkinmc")]
+pub mod sync_impl {
+    use url::Url; // Url is still ok since we use reqwest/Url independently? No, we can just use url crate.
+    // wait, the crate uses url::Url. reqwest re-exports url::Url. 
+    // we can just use url::Url if we add url dependency, but reqwest is still there (default-features = false). 
+    // reqwest without blocking still compiles to WASM! We can just use url::Url!
+    use serde_json::Value;
+    use crate::domain::sdk_info::SdkInfo;
+    use crate::validated::token::Token;
+    use crate::error::Result;
+    pub struct SubmissionOutcome {
+        pub status: u16,
+        pub body: Option<String>,
+    }
+    impl SubmissionOutcome {
+        pub fn is_successful(&self) -> bool { self.status >= 200 && self.status < 300 }
+        pub fn has_warnings(&self) -> bool { false }
+    }
+    #[derive(Clone)]
+    pub struct Transport {
+        token: Token,
+        sdk_info: SdkInfo,
+        client: ureq::Agent,
+    }
+    impl Transport {
+        pub fn new(token: Token, sdk_info: SdkInfo) -> Result<Self> {
+            Ok(Transport {
+                token, sdk_info, client: ureq::AgentBuilder::new().build(),
+            })
+        }
+        pub fn submit(&self, _u: &Url, _d: &Value, _s: &str) -> Result<SubmissionOutcome> { unimplemented!() }
+        pub fn submit_json(&self, _u: &Url, _d: &Value, _s: &str) -> Result<SubmissionOutcome> { unimplemented!() }
+        pub fn submit_gzip_json(&self, _u: &Url, _d: &Value, _s: &str) -> Result<SubmissionOutcome> { unimplemented!() }
+    }
+    pub fn resolve_server_url(_env_var: &'static str, default_url: &str) -> Result<Url> {
+        Ok(Url::parse(default_url).unwrap())
+    }
+}
+#[cfg(feature = "pumpkinmc")]
+pub use sync_impl::*;
